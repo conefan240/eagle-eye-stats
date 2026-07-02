@@ -1,29 +1,23 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Card } from "@/components/ui/card";
-import { SAVED_KEY, TEE_META, type Round, type TeeColor } from "@/lib/round-types";
+import { Button } from "@/components/ui/button";
+import { TEE_META, type Round, type TeeColor } from "@/lib/round-types";
+import { useSavedRounds } from "@/lib/use-saved-rounds";
+import { Cloud, CloudOff } from "lucide-react";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "Profile — Pinseeker" },
+      { title: "Profile — Eagle Eye Stats" },
       { name: "description", content: "Your golfer profile: rounds played, average scores, best rounds, courses and tees." },
-      { property: "og:title", content: "Profile — Pinseeker" },
-      { property: "og:description", content: "Your golfer profile: rounds played, average scores, best rounds, courses and tees." },
     ],
   }),
   component: ProfilePage,
 });
 
 function ProfilePage() {
-  const [saved, setSaved] = useState<Round[]>([]);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SAVED_KEY);
-      if (raw) setSaved(JSON.parse(raw));
-    } catch {}
-  }, []);
+  const { rounds: saved, session } = useSavedRounds();
 
   const rounds9 = saved.filter((r) => r.holes === 9);
   const rounds18 = saved.filter((r) => r.holes === 18);
@@ -68,13 +62,35 @@ function ProfilePage() {
       <BrandHeader />
       <main className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-3xl flex-col px-4 py-6">
         <h2 className="text-2xl font-bold tracking-tight">Profile</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your golf history at a glance.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Your golf history at a glance.</p>
+
+        <Card className="mt-4 flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="flex items-center gap-2 text-sm">
+            {session ? (
+              <>
+                <Cloud className="h-4 w-4 text-emerald-500" />
+                <span className="font-medium">{session.user.email ?? "Signed in"}</span>
+                <span className="text-xs text-muted-foreground">· Cloud synced</span>
+              </>
+            ) : (
+              <>
+                <CloudOff className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  Rounds saved on this device only.
+                </span>
+              </>
+            )}
+          </div>
+          {!session && (
+            <Button asChild size="sm">
+              <Link to="/auth">Sign in to sync</Link>
+            </Button>
+          )}
+        </Card>
 
         <div className="mt-6 flex-1" />
 
-        {/* Stats pinned near bottom of screen */}
+        {/* Account stats pinned near bottom of screen */}
         <section className="mt-6 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Metric label="Rounds saved" value={saved.length} />

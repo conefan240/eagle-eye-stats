@@ -26,7 +26,7 @@ export const suggestCourses = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
-    const sys = `You are a golf course database assistant. Given a partial course name, return up to 6 real, well-known golf courses that match. For each course, provide per-tee data for red, white, yellow, and blue tees, with the par and yardage for each of the ${data.holes} holes when reasonably confident (use null otherwise). Respond with strict JSON only.`;
+    const sys = `You are a golf course database assistant with deep knowledge of real courses worldwide. Given a partial course name, return up to 6 real, well-known golf courses that match. For every course you MUST fill in par AND yardage for EVERY hole and EVERY tee (red, white, yellow, blue). If you don't know exact values for a specific tee, provide your best plausible estimate consistent with the course's overall length and layout — DO NOT use null. Only leave a tee out entirely if the course genuinely does not have that tee color. Respond with strict JSON only.`;
 
     const userText = `Partial course name: "${data.query}"
 Return JSON of the form:
@@ -44,10 +44,16 @@ Return JSON of the form:
     }
   ]
 }
-Pars are typically the same across tees; distances vary (red = shortest/forward, blue = longest/back). Use null for any hole you're not confident about. Only include real courses you actually know. If none match, return {"suggestions": []}. No prose, no markdown.`;
+Rules:
+- All ${data.holes} pars must be filled with integers 3-5 (occasionally 6 for very long par-6s).
+- All ${data.holes} distances must be filled with realistic yardages (par 3: 100-260, par 4: 280-500, par 5: 470-650). Never null, never 0.
+- Pars are usually identical across tees; distances vary: red = shortest, yellow ≈ short-mid, white = regular, blue = back/longest. Red is always shorter than blue on every hole.
+- Total yardage should roughly match the course's known length for that tee.
+- If you cannot find a real matching course, return {"suggestions": []}. Do NOT invent fictional courses.
+- No prose, no markdown.`;
 
     const body = {
-      model: "google/gemini-3-flash-preview",
+      model: "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: sys },
         { role: "user", content: userText },

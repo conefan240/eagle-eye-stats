@@ -1,22 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Card } from "@/components/ui/card";
-import {
-  SAVED_KEY,
-  classifyScore,
-  SCORE_KIND_META,
-  type Round,
-  type ScoreKind,
-} from "@/lib/round-types";
+import { classifyScore, SCORE_KIND_META, type ScoreKind } from "@/lib/round-types";
+import { useSavedRounds } from "@/lib/use-saved-rounds";
 
 export const Route = createFileRoute("/stats")({
   head: () => ({
     meta: [
-      { title: "Scoring Stats — Pinseeker" },
+      { title: "Scoring Stats — Eagle Eye Stats" },
       { name: "description", content: "Total pars, birdies, eagles and bogeys across all of your saved golf rounds." },
-      { property: "og:title", content: "Scoring Stats — Pinseeker" },
-      { property: "og:description", content: "Total pars, birdies, eagles and bogeys across all of your saved golf rounds." },
     ],
   }),
   component: StatsPage,
@@ -25,13 +17,7 @@ export const Route = createFileRoute("/stats")({
 const ORDER: ScoreKind[] = ["albatross", "eagle", "birdie", "par", "bogey", "double", "triple+"];
 
 function StatsPage() {
-  const [saved, setSaved] = useState<Round[]>([]);
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SAVED_KEY);
-      if (raw) setSaved(JSON.parse(raw));
-    } catch {}
-  }, []);
+  const { rounds: saved, session } = useSavedRounds();
 
   const counts: Record<ScoreKind, number> = {
     albatross: 0, eagle: 0, birdie: 0, par: 0, bogey: 0, double: 0, "triple+": 0,
@@ -52,6 +38,15 @@ function StatsPage() {
         <h2 className="text-2xl font-bold tracking-tight">Scoring Stats</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Across {saved.length} saved round{saved.length === 1 ? "" : "s"} · {totalHolesScored} holes scored.
+          {!session && (
+            <>
+              {" "}
+              <Link to="/auth" className="underline hover:text-foreground">
+                Sign in
+              </Link>{" "}
+              to sync across devices.
+            </>
+          )}
         </p>
 
         {totalHolesScored === 0 ? (
