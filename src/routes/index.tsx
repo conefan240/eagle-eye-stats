@@ -595,10 +595,12 @@ function ScorecardTable({
   round,
   updateScore,
   updatePar,
+  unit,
 }: {
   round: Round;
   updateScore: (i: number, v: string) => void;
   updatePar: (i: number, v: string) => void;
+  unit: "yards" | "meters";
 }) {
   const groups: number[][] =
     round.holes === 9
@@ -618,7 +620,7 @@ function ScorecardTable({
               <h3 className="text-sm font-semibold">{label}</h3>
               <div className="text-xs text-muted-foreground">
                 Par {parSum || "—"} · Score {scoreSum || "—"}
-                {ydsSum > 0 && ` · ${ydsSum} yds`}
+                {ydsSum > 0 && ` · ${convertDistance(ydsSum, unit)} ${unitLabel(unit)}`}
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -637,11 +639,11 @@ function ScorecardTable({
                   {round.distances.some((d) => d != null) && (
                     <tr className="border-t">
                       <td className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                        Yards
+                        {unit === "meters" ? "Meters" : "Yards"}
                       </td>
                       {idxs.map((i) => (
                         <td key={i} className="p-1 text-center text-xs tabular-nums text-muted-foreground">
-                          {round.distances[i] ?? "—"}
+                          {round.distances[i] != null ? convertDistance(round.distances[i]!, unit) : "—"}
                         </td>
                       ))}
                     </tr>
