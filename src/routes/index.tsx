@@ -267,7 +267,7 @@ function Index() {
               </div>
             </Card>
 
-            <ScorecardTable round={round} updateScore={updateScore} updatePar={updatePar} />
+            <ScorecardTable round={round} updateScore={updateScore} updatePar={updatePar} unit={unit} />
           </div>
         )}
 
