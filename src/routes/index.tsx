@@ -5,11 +5,12 @@ import { suggestCourses, type CourseSuggestion } from "@/lib/suggest-courses.fun
 import {
   emptyRound,
   STORAGE_KEY,
-  SAVED_KEY,
   TEE_META,
   type Round,
   type TeeColor,
 } from "@/lib/round-types";
+import { useSavedRounds } from "@/lib/use-saved-rounds";
+import { useSettings, convertDistance, unitLabel, THEME_KEY } from "@/lib/settings";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +33,8 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [round, setRound] = useState<Round | null>(null);
-  const [saved, setSaved] = useState<Round[]>([]);
+  const { rounds: saved, upsert, remove } = useSavedRounds();
+  const { unit } = useSettings();
   const [showNew, setShowNew] = useState(false);
   const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -40,7 +42,7 @@ function Index() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("fairway.theme");
+    const stored = localStorage.getItem(THEME_KEY);
     const prefers = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
     const enable = stored ? stored === "dark" : !!prefers;
     setDark(enable);
@@ -51,15 +53,13 @@ function Index() {
     const next = !dark;
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("fairway.theme", next ? "dark" : "light");
+    localStorage.setItem(THEME_KEY, next ? "dark" : "light");
   }
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setRound(migrate(JSON.parse(raw)));
-      const savedRaw = localStorage.getItem(SAVED_KEY);
-      if (savedRaw) setSaved((JSON.parse(savedRaw) as any[]).map(migrate));
     } catch {}
   }, []);
 
@@ -68,20 +68,16 @@ function Index() {
     else localStorage.removeItem(STORAGE_KEY);
   }, [round]);
 
-  useEffect(() => {
-    localStorage.setItem(SAVED_KEY, JSON.stringify(saved));
-  }, [saved]);
-
-  function saveRound() {
+  async function saveRound() {
     if (!round) return;
     const toSave: Round = { ...round, savedAt: Date.now() };
-    setSaved((prev) => [toSave, ...prev.filter((r) => r.id !== toSave.id)]);
+    await upsert(toSave);
     setRound(null);
     toast.success("Round saved");
   }
 
   function deleteSaved(id: string) {
-    setSaved((prev) => prev.filter((r) => r.id !== id));
+    remove(id);
   }
 
   const totals = useMemo(() => {
