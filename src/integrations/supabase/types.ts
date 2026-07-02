@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      rounds: {
+        Row: {
+          course_name: string
+          created_at: string
+          distances: Json
+          holes: number
+          id: string
+          pars: Json
+          saved_at: number | null
+          scores: Json
+          started_at: number
+          tee: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          course_name?: string
+          created_at?: string
+          distances?: Json
+          holes: number
+          id: string
+          pars?: Json
+          saved_at?: number | null
+          scores?: Json
+          started_at: number
+          tee?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          course_name?: string
+          created_at?: string
+          distances?: Json
+          holes?: number
+          id?: string
+          pars?: Json
+          saved_at?: number | null
+          scores?: Json
+          started_at?: number
+          tee?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
