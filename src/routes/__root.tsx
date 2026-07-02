@@ -80,9 +80,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Eagle Eye Stats — Golf Scorecard Tracker" },
       { name: "description", content: "Snap a photo of your golf scorecard and Eagle Eye Stats auto-fills your scores. Cloud-synced rounds, tees, pars, birdies and more." },
       { property: "og:title", content: "Eagle Eye Stats — Golf Scorecard Tracker" },
-      { property: "og:description", content: "Cloud-synced golf scorecards with tee selection, distance units, and full scoring stats." },
+      { property: "og:description", content: "Snap a photo of your golf scorecard and Eagle Eye Stats auto-fills your scores. Cloud-synced rounds, tees, pars, birdies and more." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Eagle Eye Stats — Golf Scorecard Tracker" },
+      { name: "twitter:description", content: "Snap a photo of your golf scorecard and Eagle Eye Stats auto-fills your scores. Cloud-synced rounds, tees, pars, birdies and more." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/uobiv1mzknVWA7wKqEipJIZ3Cip1/social-images/social-1783034463191-logo-B0q5lm3e.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/uobiv1mzknVWA7wKqEipJIZ3Cip1/social-images/social-1783034463191-logo-B0q5lm3e.webp" },
     ],
     links: [
       {
