@@ -199,7 +199,9 @@ function Index() {
                     <span className="font-medium capitalize text-foreground">
                       {round.tee} tees
                     </span>
-                    {totals.yards > 0 && <span>· {totals.yards} yds total</span>}
+                    {totals.yards > 0 && (
+                      <span>· {convertDistance(totals.yards, unit)} {unitLabel(unit)} total</span>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-center">
