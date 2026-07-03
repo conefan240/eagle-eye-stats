@@ -778,6 +778,7 @@ function NewRoundDialog({
   onOpenChange,
   hasCurrentRound,
   onStart,
+  defaultCourse,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -789,6 +790,7 @@ function NewRoundDialog({
     pars?: (number | null)[],
     distances?: (number | null)[],
   ) => void;
+  defaultCourse?: HomeCourse | null;
 }) {
   const [holes, setHoles] = useState<9 | 18>(18);
   const [tee, setTee] = useState<TeeColor>("white");
@@ -799,13 +801,14 @@ function NewRoundDialog({
 
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setPicked(null);
+      setQuery(defaultCourse?.name ?? "");
+      setPicked(defaultCourse?.suggestion ?? null);
       setSuggestions([]);
       setHoles(18);
       setTee("white");
     }
-  }, [open]);
+  }, [open, defaultCourse]);
+
 
   useEffect(() => {
     if (picked && picked.name === query) return;
