@@ -38,6 +38,8 @@ function Index() {
   const [round, setRound] = useState<Round | null>(null);
   const { rounds: saved, upsert, remove } = useSavedRounds();
   const { unit } = useSettings();
+  const { homeCourse, setHomeCourse } = useHomeCourse();
+  const { prefs: widgets } = useWidgetPrefs();
   const [showNew, setShowNew] = useState(false);
   const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,6 +50,13 @@ function Index() {
   const [playerName, setPlayerName] = useState<string>("");
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [isFirstRun, setIsFirstRun] = useState(false);
+
+  // Filters for saved rounds list
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterTee, setFilterTee] = useState<"all" | TeeColor>("all");
+  const [filterHoles, setFilterHoles] = useState<"all" | 9 | 18>("all");
 
   // Whether we're past the "scan first" step for the current round
   const [entryStarted, setEntryStarted] = useState(false);
