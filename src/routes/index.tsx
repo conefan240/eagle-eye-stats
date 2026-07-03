@@ -708,26 +708,48 @@ function Index() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{playerName ? "Edit your name" : "Welcome to Eagle Eye Stats"}</DialogTitle>
+            <DialogTitle>{isFirstRun ? "Welcome to Eagle Eye Stats" : "Edit your name"}</DialogTitle>
             <DialogDescription>
               We use your name to pick the right column when scanning multi-player scorecards.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-            <label className="text-xs font-medium text-muted-foreground">Full name</label>
-            <Input
-              autoFocus
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              placeholder="e.g. Colm Fanning"
-              className="mt-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveName();
-              }}
-            />
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Full name</label>
+              <Input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                placeholder="e.g. Colm Fanning"
+                className="mt-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isFirstRun) saveName();
+                }}
+              />
+            </div>
+            {isFirstRun && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Home course <span className="text-muted-foreground/70">(optional)</span>
+                </label>
+                <Input
+                  value={homeCourseDraft}
+                  onChange={(e) => setHomeCourseDraft(e.target.value)}
+                  placeholder="e.g. Royal Portrush"
+                  className="mt-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveName();
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  We'll prefill this when you start a new round or scan a card. You can still
+                  search for other courses too, and change this later in Settings.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button onClick={saveName}>Save name</Button>
+            <Button onClick={saveName}>{isFirstRun ? "Get started" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
