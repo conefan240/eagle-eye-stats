@@ -235,6 +235,15 @@ function Index() {
 
   function openQuickScan() {
     if (!round) {
+      if (homeCourse) {
+        // Auto-start a round at the home course and open the scanner
+        const s = homeCourse.suggestion;
+        const tee: TeeColor = "white";
+        const teeData = s?.tees?.[tee];
+        startRound(18, tee, homeCourse.name, teeData?.pars ?? s?.pars, teeData?.distances);
+        setTimeout(() => quickFileRef.current?.click(), 50);
+        return;
+      }
       toast.message("Start a round first, then scan the card");
       setShowNew(true);
       return;
