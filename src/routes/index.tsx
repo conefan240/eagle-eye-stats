@@ -210,8 +210,27 @@ function Index() {
     }
     localStorage.setItem(PLAYER_NAME_KEY, n);
     setPlayerName(n);
+    const hc = homeCourseDraft.trim();
+    if (isFirstRun && hc) {
+      setHomeCourse({ name: hc });
+    }
     setShowNameDialog(false);
-    toast.success("Name saved");
+    setIsFirstRun(false);
+    toast.success("Saved");
+  }
+
+  function startHomeCourseRound() {
+    if (!homeCourse) return;
+    const s = homeCourse.suggestion;
+    const tee: TeeColor = "white";
+    const teeData = s?.tees?.[tee];
+    startRound(
+      18,
+      tee,
+      homeCourse.name,
+      teeData?.pars ?? s?.pars,
+      teeData?.distances,
+    );
   }
 
   function openQuickScan() {
