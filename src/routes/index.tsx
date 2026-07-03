@@ -1112,3 +1112,33 @@ function ScorecardTable({
     </div>
   );
 }
+
+function WidgetTile({
+  icon,
+  label,
+  hint,
+  onClick,
+  loading,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+  loading?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="group flex flex-col items-start gap-2 rounded-xl border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 disabled:opacity-60"
+    >
+      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold">{label}</div>
+        {hint && <div className="truncate text-[11px] text-muted-foreground">{hint}</div>}
+      </div>
+    </button>
+  );
+}
