@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { scanScorecard } from "@/lib/scan-scorecard.functions";
 import { suggestCourses, type CourseSuggestion } from "@/lib/suggest-courses.functions";
@@ -11,6 +11,7 @@ import {
 } from "@/lib/round-types";
 import { useSavedRounds } from "@/lib/use-saved-rounds";
 import { useSettings, convertDistance, unitLabel, THEME_KEY } from "@/lib/settings";
+import { useHomeCourse, useWidgetPrefs, type HomeCourse } from "@/lib/home-course";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Camera, Plus, Loader2, Save, Trash2, Upload, Moon, Sun, Flag, Pencil, ScanLine } from "lucide-react";
+import { Camera, Plus, Loader2, Save, Trash2, Upload, Moon, Sun, Flag, Pencil, ScanLine, Home, Search, X } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -37,6 +38,8 @@ function Index() {
   const [round, setRound] = useState<Round | null>(null);
   const { rounds: saved, upsert, remove } = useSavedRounds();
   const { unit } = useSettings();
+  const { homeCourse, setHomeCourse } = useHomeCourse();
+  const { prefs: widgets } = useWidgetPrefs();
   const [showNew, setShowNew] = useState(false);
   const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -47,6 +50,13 @@ function Index() {
   const [playerName, setPlayerName] = useState<string>("");
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [isFirstRun, setIsFirstRun] = useState(false);
+
+  // Filters for saved rounds list
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterTee, setFilterTee] = useState<"all" | TeeColor>("all");
+  const [filterHoles, setFilterHoles] = useState<"all" | 9 | 18>("all");
 
   // Whether we're past the "scan first" step for the current round
   const [entryStarted, setEntryStarted] = useState(false);
@@ -64,6 +74,8 @@ function Index() {
     setPlayerName(n);
     if (!n) {
       setNameDraft("");
+      setHomeCourseDraft("");
+      setIsFirstRun(true);
       setShowNameDialog(true);
     }
   }, []);
@@ -198,12 +210,40 @@ function Index() {
     }
     localStorage.setItem(PLAYER_NAME_KEY, n);
     setPlayerName(n);
+    const hc = homeCourseDraft.trim();
+    if (isFirstRun && hc) {
+      setHomeCourse({ name: hc });
+    }
     setShowNameDialog(false);
-    toast.success("Name saved");
+    setIsFirstRun(false);
+    toast.success("Saved");
+  }
+
+  function startHomeCourseRound() {
+    if (!homeCourse) return;
+    const s = homeCourse.suggestion;
+    const tee: TeeColor = "white";
+    const teeData = s?.tees?.[tee];
+    startRound(
+      18,
+      tee,
+      homeCourse.name,
+      teeData?.pars ?? s?.pars,
+      teeData?.distances,
+    );
   }
 
   function openQuickScan() {
     if (!round) {
+      if (homeCourse) {
+        // Auto-start a round at the home course and open the scanner
+        const s = homeCourse.suggestion;
+        const tee: TeeColor = "white";
+        const teeData = s?.tees?.[tee];
+        startRound(18, tee, homeCourse.name, teeData?.pars ?? s?.pars, teeData?.distances);
+        setTimeout(() => quickFileRef.current?.click(), 50);
+        return;
+      }
       toast.message("Start a round first, then scan the card");
       setShowNew(true);
       return;
@@ -223,6 +263,7 @@ function Index() {
             <button
               onClick={() => {
                 setNameDraft(playerName);
+                setIsFirstRun(false);
                 setShowNameDialog(true);
               }}
               className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground sm:inline-flex"
@@ -231,42 +272,82 @@ function Index() {
               <span className="max-w-[120px] truncate">{playerName || "Set name"}</span>
               <Pencil className="h-3 w-3" />
             </button>
-            <Button onClick={() => setShowNew(true)} size="sm">
-              <Plus className="mr-1 h-4 w-4" /> New round
-            </Button>
           </>
         }
       />
 
       <main className="mx-auto max-w-3xl px-4 py-6">
-        {/* Quick-scan widget: small strip at the top of home */}
-        <Card className="mb-4 flex items-center justify-between gap-3 p-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <ScanLine className="h-5 w-5" />
+        <input
+          ref={quickFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+          }}
+        />
+
+        {/* Customizable dashboard widgets */}
+        {(widgets.upload || widgets.newRound || widgets.homeCourse || widgets.lastRound) && (
+          <section className="mb-5">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Dashboard
+              </h2>
+              <Link
+                to="/settings"
+                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+              >
+                Customize
+              </Link>
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">Scan a scorecard</div>
-              <div className="truncate text-xs text-muted-foreground">
-                {round ? "Snap your card to auto-fill this round" : "Start a round, then snap the card"}
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {widgets.upload && (
+                <WidgetTile
+                  icon={<ScanLine className="h-5 w-5" />}
+                  label="Upload card"
+                  hint={round ? "Auto-fill this round" : homeCourse ? `Scan at ${homeCourse.name}` : "Snap a scorecard"}
+                  onClick={openQuickScan}
+                  loading={scanning}
+                />
+              )}
+              {widgets.newRound && (
+                <WidgetTile
+                  icon={<Plus className="h-5 w-5" />}
+                  label="New round"
+                  hint={homeCourse ? `Prefilled: ${homeCourse.name}` : "Pick course & tees"}
+                  onClick={() => setShowNew(true)}
+                />
+              )}
+              {widgets.homeCourse && homeCourse && (
+                <WidgetTile
+                  icon={<Home className="h-5 w-5" />}
+                  label={homeCourse.name}
+                  hint="Start 18 · white tees"
+                  onClick={startHomeCourseRound}
+                />
+              )}
+              {widgets.lastRound && saved[0] && (
+                <WidgetTile
+                  icon={<Flag className="h-5 w-5" />}
+                  label={`Last: ${saved[0].courseName || "Round"}`}
+                  hint={(() => {
+                    const s = saved[0].scores.reduce<number>((a, b) => a + (b ?? 0), 0);
+                    const p = saved[0].pars.reduce<number>((a, b) => a + (b ?? 0), 0);
+                    const d = s - p;
+                    return `${s || "—"} · ${p ? (d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`) : "—"}`;
+                  })()}
+                  onClick={() => {
+                    setRound(saved[0]);
+                    setEntryStarted(true);
+                  }}
+                />
+              )}
             </div>
-          </div>
-          <input
-            ref={quickFileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
-          />
-          <Button size="sm" variant="outline" onClick={openQuickScan} disabled={scanning}>
-            {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            <span className="ml-1 hidden sm:inline">Upload card</span>
-          </Button>
-        </Card>
+          </section>
+        )}
+
 
         {!round ? (
           <Card className="flex flex-col items-center justify-center gap-4 p-10 text-center">
@@ -453,68 +534,158 @@ function Index() {
 
         {saved.length > 0 && (
           <section className="mt-8">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Saved rounds
-            </h2>
-            <div className="space-y-2">
-              {saved.map((r) => {
-                const score = r.scores.reduce<number>((a, b) => a + (b ?? 0), 0);
-                const par = r.pars.reduce<number>((a, b) => a + (b ?? 0), 0);
-                const diff = score - par;
-                const date = new Date(r.savedAt ?? r.startedAt);
-                const dateStr = date.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                });
-                return (
-                  <Card
-                    key={r.id}
-                    className="flex items-center justify-between gap-3 p-3 transition-colors hover:bg-accent/40"
-                  >
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Saved rounds
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                {(() => {
+                  const filtered = saved.filter((r) => {
+                    if (filterTee !== "all" && r.tee !== filterTee) return false;
+                    if (filterHoles !== "all" && r.holes !== filterHoles) return false;
+                    if (filterQuery.trim() && !r.courseName.toLowerCase().includes(filterQuery.trim().toLowerCase())) return false;
+                    return true;
+                  });
+                  return `${filtered.length} / ${saved.length}`;
+                })()}
+              </span>
+            </div>
+
+            {/* Filters */}
+            <Card className="mb-3 p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={filterQuery}
+                    onChange={(e) => setFilterQuery(e.target.value)}
+                    placeholder="Search by course…"
+                    className="h-8 pl-7 pr-7 text-sm"
+                  />
+                  {filterQuery && (
                     <button
-                      onClick={() => {
-                        setRound(r);
-                        setEntryStarted(true);
-                      }}
-                      className="flex flex-1 items-center gap-3 text-left"
+                      onClick={() => setFilterQuery("")}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-accent"
+                      aria-label="Clear search"
                     >
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                        {r.holes}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-semibold">
-                          {r.courseName || "Unnamed course"}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                          <span
-                            className={`inline-block h-2.5 w-2.5 rounded-full ${TEE_META[r.tee].swatch}`}
-                          />
-                          <span className="capitalize">{r.tee} tees</span>
-                          <span>·</span>
-                          <span>{dateStr}</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-base font-semibold tabular-nums">{score || "—"}</div>
-                        <div className="text-xs tabular-nums text-muted-foreground">
-                          {par ? (diff > 0 ? `+${diff}` : diff === 0 ? "E" : `${diff}`) : "—"}
-                        </div>
-                      </div>
+                      <X className="h-3.5 w-3.5" />
                     </button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (confirm("Delete this saved round?")) deleteSaved(r.id);
-                      }}
-                      aria-label="Delete round"
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  {(["all", 9, 18] as const).map((h) => (
+                    <button
+                      key={String(h)}
+                      onClick={() => setFilterHoles(h)}
+                      className={`rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                        filterHoles === h
+                          ? "border-primary bg-accent"
+                          : "border-border hover:border-primary/50"
+                      }`}
                     >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
-                    </Button>
-                  </Card>
-                );
-              })}
+                      {h === "all" ? "All" : `${h}`}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setFilterTee("all")}
+                    className={`rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
+                      filterTee === "all"
+                        ? "border-primary bg-accent"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {(["red", "yellow", "white", "blue"] as TeeColor[]).map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setFilterTee(c)}
+                      className={`flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                        filterTee === c
+                          ? "border-primary bg-accent"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                      aria-label={`Filter ${c} tees`}
+                    >
+                      <span className={`h-3 w-3 rounded-full ${TEE_META[c].swatch}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            <div className="space-y-2">
+              {saved
+                .filter((r) => {
+                  if (filterTee !== "all" && r.tee !== filterTee) return false;
+                  if (filterHoles !== "all" && r.holes !== filterHoles) return false;
+                  if (
+                    filterQuery.trim() &&
+                    !r.courseName.toLowerCase().includes(filterQuery.trim().toLowerCase())
+                  )
+                    return false;
+                  return true;
+                })
+                .map((r) => {
+                  const score = r.scores.reduce<number>((a, b) => a + (b ?? 0), 0);
+                  const par = r.pars.reduce<number>((a, b) => a + (b ?? 0), 0);
+                  const diff = score - par;
+                  const date = new Date(r.savedAt ?? r.startedAt);
+                  const dateStr = date.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  });
+                  return (
+                    <Card
+                      key={r.id}
+                      className="flex items-center justify-between gap-3 p-3 transition-colors hover:bg-accent/40"
+                    >
+                      <button
+                        onClick={() => {
+                          setRound(r);
+                          setEntryStarted(true);
+                        }}
+                        className="flex flex-1 items-center gap-3 text-left"
+                      >
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                          {r.holes}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-semibold">
+                            {r.courseName || "Unnamed course"}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                            <span
+                              className={`inline-block h-2.5 w-2.5 rounded-full ${TEE_META[r.tee].swatch}`}
+                            />
+                            <span className="capitalize">{r.tee} tees</span>
+                            <span>·</span>
+                            <span>{dateStr}</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-base font-semibold tabular-nums">{score || "—"}</div>
+                          <div className="text-xs tabular-nums text-muted-foreground">
+                            {par ? (diff > 0 ? `+${diff}` : diff === 0 ? "E" : `${diff}`) : "—"}
+                          </div>
+                        </div>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm("Delete this saved round?")) deleteSaved(r.id);
+                        }}
+                        aria-label="Delete round"
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </Card>
+                  );
+                })}
             </div>
           </section>
         )}
@@ -525,6 +696,7 @@ function Index() {
         onOpenChange={setShowNew}
         hasCurrentRound={!!round}
         onStart={startRound}
+        defaultCourse={homeCourse}
       />
 
       <Dialog
@@ -537,26 +709,48 @@ function Index() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{playerName ? "Edit your name" : "Welcome to Eagle Eye Stats"}</DialogTitle>
+            <DialogTitle>{isFirstRun ? "Welcome to Eagle Eye Stats" : "Edit your name"}</DialogTitle>
             <DialogDescription>
               We use your name to pick the right column when scanning multi-player scorecards.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-            <label className="text-xs font-medium text-muted-foreground">Full name</label>
-            <Input
-              autoFocus
-              value={nameDraft}
-              onChange={(e) => setNameDraft(e.target.value)}
-              placeholder="e.g. Colm Fanning"
-              className="mt-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveName();
-              }}
-            />
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Full name</label>
+              <Input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                placeholder="e.g. Colm Fanning"
+                className="mt-1"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isFirstRun) saveName();
+                }}
+              />
+            </div>
+            {isFirstRun && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Home course <span className="text-muted-foreground/70">(optional)</span>
+                </label>
+                <Input
+                  value={homeCourseDraft}
+                  onChange={(e) => setHomeCourseDraft(e.target.value)}
+                  placeholder="e.g. Royal Portrush"
+                  className="mt-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveName();
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  We'll prefill this when you start a new round or scan a card. You can still
+                  search for other courses too, and change this later in Settings.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button onClick={saveName}>Save name</Button>
+            <Button onClick={saveName}>{isFirstRun ? "Get started" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -584,6 +778,7 @@ function NewRoundDialog({
   onOpenChange,
   hasCurrentRound,
   onStart,
+  defaultCourse,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -595,6 +790,7 @@ function NewRoundDialog({
     pars?: (number | null)[],
     distances?: (number | null)[],
   ) => void;
+  defaultCourse?: HomeCourse | null;
 }) {
   const [holes, setHoles] = useState<9 | 18>(18);
   const [tee, setTee] = useState<TeeColor>("white");
@@ -605,13 +801,14 @@ function NewRoundDialog({
 
   useEffect(() => {
     if (open) {
-      setQuery("");
-      setPicked(null);
+      setQuery(defaultCourse?.name ?? "");
+      setPicked(defaultCourse?.suggestion ?? null);
       setSuggestions([]);
       setHoles(18);
       setTee("white");
     }
-  }, [open]);
+  }, [open, defaultCourse]);
+
 
   useEffect(() => {
     if (picked && picked.name === query) return;
@@ -913,5 +1110,35 @@ function ScorecardTable({
         );
       })}
     </div>
+  );
+}
+
+function WidgetTile({
+  icon,
+  label,
+  hint,
+  onClick,
+  loading,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+  loading?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="group flex flex-col items-start gap-2 rounded-xl border bg-card p-3 text-left shadow-sm transition-colors hover:border-primary/50 hover:bg-accent/40 disabled:opacity-60"
+    >
+      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      </div>
+      <div className="min-w-0">
+        <div className="truncate text-sm font-semibold">{label}</div>
+        {hint && <div className="truncate text-[11px] text-muted-foreground">{hint}</div>}
+      </div>
+    </button>
   );
 }
