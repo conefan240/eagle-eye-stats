@@ -696,6 +696,7 @@ function Index() {
         onOpenChange={setShowNew}
         hasCurrentRound={!!round}
         onStart={startRound}
+        defaultCourse={homeCourse}
       />
 
       <Dialog
