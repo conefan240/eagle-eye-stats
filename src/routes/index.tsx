@@ -263,6 +263,7 @@ function Index() {
             <button
               onClick={() => {
                 setNameDraft(playerName);
+                setIsFirstRun(false);
                 setShowNameDialog(true);
               }}
               className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground sm:inline-flex"
@@ -271,42 +272,82 @@ function Index() {
               <span className="max-w-[120px] truncate">{playerName || "Set name"}</span>
               <Pencil className="h-3 w-3" />
             </button>
-            <Button onClick={() => setShowNew(true)} size="sm">
-              <Plus className="mr-1 h-4 w-4" /> New round
-            </Button>
           </>
         }
       />
 
       <main className="mx-auto max-w-3xl px-4 py-6">
-        {/* Quick-scan widget: small strip at the top of home */}
-        <Card className="mb-4 flex items-center justify-between gap-3 p-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <ScanLine className="h-5 w-5" />
+        <input
+          ref={quickFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handleFile(f);
+          }}
+        />
+
+        {/* Customizable dashboard widgets */}
+        {(widgets.upload || widgets.newRound || widgets.homeCourse || widgets.lastRound) && (
+          <section className="mb-5">
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Dashboard
+              </h2>
+              <Link
+                to="/settings"
+                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+              >
+                Customize
+              </Link>
             </div>
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">Scan a scorecard</div>
-              <div className="truncate text-xs text-muted-foreground">
-                {round ? "Snap your card to auto-fill this round" : "Start a round, then snap the card"}
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {widgets.upload && (
+                <WidgetTile
+                  icon={<ScanLine className="h-5 w-5" />}
+                  label="Upload card"
+                  hint={round ? "Auto-fill this round" : homeCourse ? `Scan at ${homeCourse.name}` : "Snap a scorecard"}
+                  onClick={openQuickScan}
+                  loading={scanning}
+                />
+              )}
+              {widgets.newRound && (
+                <WidgetTile
+                  icon={<Plus className="h-5 w-5" />}
+                  label="New round"
+                  hint={homeCourse ? `Prefilled: ${homeCourse.name}` : "Pick course & tees"}
+                  onClick={() => setShowNew(true)}
+                />
+              )}
+              {widgets.homeCourse && homeCourse && (
+                <WidgetTile
+                  icon={<Home className="h-5 w-5" />}
+                  label={homeCourse.name}
+                  hint="Start 18 · white tees"
+                  onClick={startHomeCourseRound}
+                />
+              )}
+              {widgets.lastRound && saved[0] && (
+                <WidgetTile
+                  icon={<Flag className="h-5 w-5" />}
+                  label={`Last: ${saved[0].courseName || "Round"}`}
+                  hint={(() => {
+                    const s = saved[0].scores.reduce<number>((a, b) => a + (b ?? 0), 0);
+                    const p = saved[0].pars.reduce<number>((a, b) => a + (b ?? 0), 0);
+                    const d = s - p;
+                    return `${s || "—"} · ${p ? (d > 0 ? `+${d}` : d === 0 ? "E" : `${d}`) : "—"}`;
+                  })()}
+                  onClick={() => {
+                    setRound(saved[0]);
+                    setEntryStarted(true);
+                  }}
+                />
+              )}
             </div>
-          </div>
-          <input
-            ref={quickFileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFile(f);
-            }}
-          />
-          <Button size="sm" variant="outline" onClick={openQuickScan} disabled={scanning}>
-            {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            <span className="ml-1 hidden sm:inline">Upload card</span>
-          </Button>
-        </Card>
+          </section>
+        )}
+
 
         {!round ? (
           <Card className="flex flex-col items-center justify-center gap-4 p-10 text-center">
