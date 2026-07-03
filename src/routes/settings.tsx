@@ -3,12 +3,14 @@ import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useSettings, THEME_KEY } from "@/lib/settings";
+import { useHomeCourse, useWidgetPrefs, WIDGET_META } from "@/lib/home-course";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { LogOut, Cloud, CloudOff } from "lucide-react";
+import { LogOut, Cloud, CloudOff, Home } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
