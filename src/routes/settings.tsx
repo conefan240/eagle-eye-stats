@@ -24,8 +24,15 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { unit, setUnit, scoreDisplay, setScoreDisplay } = useSettings();
+  const { homeCourse, setHomeCourse } = useHomeCourse();
+  const { prefs: widgets, setPref: setWidget } = useWidgetPrefs();
+  const [homeCourseDraft, setHomeCourseDraft] = useState("");
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    setHomeCourseDraft(homeCourse?.name ?? "");
+  }, [homeCourse?.name]);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY);
