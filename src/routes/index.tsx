@@ -74,6 +74,8 @@ function Index() {
     setPlayerName(n);
     if (!n) {
       setNameDraft("");
+      setHomeCourseDraft("");
+      setIsFirstRun(true);
       setShowNameDialog(true);
     }
   }, []);
