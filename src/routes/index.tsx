@@ -11,6 +11,7 @@ import {
 } from "@/lib/round-types";
 import { useSavedRounds } from "@/lib/use-saved-rounds";
 import { useSettings, convertDistance, unitLabel, THEME_KEY } from "@/lib/settings";
+import { useHomeCourse, useWidgetPrefs, type HomeCourse } from "@/lib/home-course";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Camera, Plus, Loader2, Save, Trash2, Upload, Moon, Sun, Flag, Pencil, ScanLine } from "lucide-react";
+import { Camera, Plus, Loader2, Save, Trash2, Upload, Moon, Sun, Flag, Pencil, ScanLine, Home, Search, X } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
