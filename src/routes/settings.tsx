@@ -93,6 +93,80 @@ function SettingsPage() {
         </Card>
 
         <Card className="p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Home className="h-4 w-4" /> Home course
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Prefilled when you start a new round or scan a card. You can still search for other
+            courses.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={homeCourseDraft}
+              onChange={(e) => setHomeCourseDraft(e.target.value)}
+              placeholder="e.g. Royal Portrush"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  const n = homeCourseDraft.trim();
+                  if (!n) {
+                    setHomeCourse(null);
+                    toast.success("Home course cleared");
+                    return;
+                  }
+                  setHomeCourse({ name: n });
+                  toast.success("Home course saved");
+                }}
+              >
+                Save
+              </Button>
+              {homeCourse && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setHomeCourse(null);
+                    setHomeCourseDraft("");
+                    toast.success("Home course cleared");
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="text-sm font-semibold">Dashboard widgets</div>
+          <p className="text-xs text-muted-foreground">
+            Choose which quick-action tiles appear on your home screen.
+          </p>
+          <div className="mt-3 space-y-2">
+            {WIDGET_META.map((w) => (
+              <label
+                key={w.id}
+                className="flex cursor-pointer items-center justify-between gap-3 rounded-md border p-2 hover:bg-accent/40"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{w.label}</div>
+                  <div className="text-[11px] text-muted-foreground">{w.hint}</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={widgets[w.id]}
+                  onChange={(e) => setWidget(w.id, e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+            ))}
+          </div>
+        </Card>
+
+
+        <Card className="p-4">
           <div className="text-sm font-semibold">Distance units</div>
           <p className="text-xs text-muted-foreground">
             How yardage/distance appears on scorecards and course listings.
