@@ -4,12 +4,15 @@ import { z } from "zod";
 const Input = z.object({
   imageDataUrl: z.string().min(20),
   holes: z.union([z.literal(9), z.literal(18)]),
+  playerName: z.string().trim().max(120).optional(),
 });
 
 export type ScanResult = {
   scores: (number | null)[];
   pars?: (number | null)[];
   courseName?: string | null;
+  matchedPlayer?: string | null;
+  matchNote?: string | null;
 };
 
 export const scanScorecard = createServerFn({ method: "POST" })
@@ -18,9 +21,13 @@ export const scanScorecard = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
-    const sys = `You are an expert at reading golf scorecards from photos. Extract the player's stroke scores for each hole. If multiple players appear, pick the first or most prominent player row. Return strict JSON only.`;
+    const name = (data.playerName ?? "").trim();
 
-    const userText = `Extract scores for ${data.holes} holes. Respond with JSON: {"courseName": string|null, "pars": number[] (length ${data.holes}, use null if unknown), "scores": number[] (length ${data.holes}, use null for blanks)}. No prose, no markdown.`;
+    const sys = name
+      ? `You are an expert at reading golf scorecards from photos. Scorecards typically list several players in separate columns (or rows). The user's saved name is "${name}". Find the column or row whose header/label matches that name — accept close matches: first name only, common nicknames, initials, or minor OCR misspellings. Pull the stroke scores ONLY from that matched player's column/row. If the card has no player labels at all, fall back to the leftmost/most prominent player column. Return strict JSON only.`
+      : `You are an expert at reading golf scorecards from photos. Extract the player's stroke scores for each hole. If multiple players appear, pick the leftmost or most prominent player column/row. Return strict JSON only.`;
+
+    const userText = `Extract scores for ${data.holes} holes${name ? ` for player "${name}"` : ""}. Respond with JSON: {"courseName": string|null, "pars": number[] (length ${data.holes}, use null if unknown), "scores": number[] (length ${data.holes}, use null for blanks), "matchedPlayer": string|null (the exact player label you pulled scores from, or null if the card had no player names), "matchNote": string|null (short reason, e.g. "matched 'Colm' to saved name Colm Fanning" or "no player labels — used leftmost column")}. No prose, no markdown.`;
 
     const body = {
       model: "google/gemini-3-flash-preview",
@@ -77,5 +84,7 @@ export const scanScorecard = createServerFn({ method: "POST" })
       courseName: parsed.courseName ?? null,
       pars: normalize(parsed.pars),
       scores: normalize(parsed.scores),
+      matchedPlayer: typeof parsed.matchedPlayer === "string" ? parsed.matchedPlayer : null,
+      matchNote: typeof parsed.matchNote === "string" ? parsed.matchNote : null,
     };
   });

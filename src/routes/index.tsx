@@ -25,11 +25,13 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { Camera, Plus, Loader2, Save, Trash2, Upload, Moon, Sun, Flag } from "lucide-react";
+import { Camera, Plus, Loader2, Save, Trash2, Upload, Moon, Sun, Flag, Pencil, ScanLine } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Index,
 });
+
+const PLAYER_NAME_KEY = "fairway.playerName";
 
 function Index() {
   const [round, setRound] = useState<Round | null>(null);
@@ -39,7 +41,15 @@ function Index() {
   const [scanning, setScanning] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const quickFileRef = useRef<HTMLInputElement>(null);
   const [dark, setDark] = useState(false);
+
+  const [playerName, setPlayerName] = useState<string>("");
+  const [showNameDialog, setShowNameDialog] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+
+  // Whether we're past the "scan first" step for the current round
+  const [entryStarted, setEntryStarted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY);
@@ -47,6 +57,15 @@ function Index() {
     const enable = stored ? stored === "dark" : !!prefers;
     setDark(enable);
     document.documentElement.classList.toggle("dark", enable);
+  }, []);
+
+  useEffect(() => {
+    const n = localStorage.getItem(PLAYER_NAME_KEY) ?? "";
+    setPlayerName(n);
+    if (!n) {
+      setNameDraft("");
+      setShowNameDialog(true);
+    }
   }, []);
 
   function toggleDark() {
@@ -59,7 +78,12 @@ function Index() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setRound(migrate(JSON.parse(raw)));
+      if (raw) {
+        const r = migrate(JSON.parse(raw));
+        setRound(r);
+        // If they've already recorded any scores, skip the scan-first gate
+        setEntryStarted(r.scores.some((s) => s != null));
+      }
     } catch {}
   }, []);
 
@@ -73,6 +97,7 @@ function Index() {
     const toSave: Round = { ...round, savedAt: Date.now() };
     await upsert(toSave);
     setRound(null);
+    setEntryStarted(false);
     toast.success("Round saved");
   }
 
@@ -101,6 +126,7 @@ function Index() {
     if (pars && pars.length === holes) r.pars = pars.slice();
     if (distances && distances.length === holes) r.distances = distances.slice();
     setRound(r);
+    setEntryStarted(false);
     setShowNew(false);
   }
 
@@ -133,21 +159,56 @@ function Index() {
         r.onerror = () => reject(new Error("read failed"));
         r.readAsDataURL(file);
       });
-      const result = await scanScorecard({ data: { imageDataUrl: dataUrl, holes: round.holes } });
+      const result = await scanScorecard({
+        data: {
+          imageDataUrl: dataUrl,
+          holes: round.holes,
+          playerName: playerName || undefined,
+        },
+      });
       setRound({
         ...round,
         courseName: result.courseName || round.courseName,
         pars: result.pars?.map((p, i) => p ?? round.pars[i]) ?? round.pars,
         scores: result.scores.map((s, i) => s ?? round.scores[i]),
       });
-      toast.success("Scorecard scanned");
+      setEntryStarted(true);
+      if (result.matchedPlayer) {
+        toast.success(`Scanned — matched: ${result.matchedPlayer}`);
+      } else if (playerName) {
+        toast.warning(`Couldn't find "${playerName}" on the card — used the most prominent column`);
+      } else {
+        toast.success("Scorecard scanned");
+      }
     } catch (e: any) {
       toast.error(e?.message || "Scan failed");
     } finally {
       setScanning(false);
       if (fileRef.current) fileRef.current.value = "";
       if (cameraRef.current) cameraRef.current.value = "";
+      if (quickFileRef.current) quickFileRef.current.value = "";
     }
+  }
+
+  function saveName() {
+    const n = nameDraft.trim();
+    if (!n) {
+      toast.error("Please enter your name");
+      return;
+    }
+    localStorage.setItem(PLAYER_NAME_KEY, n);
+    setPlayerName(n);
+    setShowNameDialog(false);
+    toast.success("Name saved");
+  }
+
+  function openQuickScan() {
+    if (!round) {
+      toast.message("Start a round first, then scan the card");
+      setShowNew(true);
+      return;
+    }
+    quickFileRef.current?.click();
   }
 
   return (
@@ -159,6 +220,17 @@ function Index() {
             <Button variant="ghost" size="icon" onClick={toggleDark} aria-label="Toggle dark mode">
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+            <button
+              onClick={() => {
+                setNameDraft(playerName);
+                setShowNameDialog(true);
+              }}
+              className="hidden items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground sm:inline-flex"
+              aria-label="Edit your name"
+            >
+              <span className="max-w-[120px] truncate">{playerName || "Set name"}</span>
+              <Pencil className="h-3 w-3" />
+            </button>
             <Button onClick={() => setShowNew(true)} size="sm">
               <Plus className="mr-1 h-4 w-4" /> New round
             </Button>
@@ -167,6 +239,35 @@ function Index() {
       />
 
       <main className="mx-auto max-w-3xl px-4 py-6">
+        {/* Quick-scan widget: small strip at the top of home */}
+        <Card className="mb-4 flex items-center justify-between gap-3 p-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <ScanLine className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium">Scan a scorecard</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {round ? "Snap your card to auto-fill this round" : "Start a round, then snap the card"}
+              </div>
+            </div>
+          </div>
+          <input
+            ref={quickFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleFile(f);
+            }}
+          />
+          <Button size="sm" variant="outline" onClick={openQuickScan} disabled={scanning}>
+            {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            <span className="ml-1 hidden sm:inline">Upload card</span>
+          </Button>
+        </Card>
+
         {!round ? (
           <Card className="flex flex-col items-center justify-center gap-4 p-10 text-center">
             <Flag className="h-12 w-12 text-muted-foreground" />
@@ -179,6 +280,85 @@ function Index() {
             <Button onClick={() => setShowNew(true)}>
               <Plus className="mr-1 h-4 w-4" /> Start new round
             </Button>
+          </Card>
+        ) : !entryStarted ? (
+          <Card className="p-6">
+            <div className="mb-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                {round.courseName || "New round"} · {round.holes} holes ·{" "}
+                <span className="capitalize">{round.tee} tees</span>
+              </div>
+              <h2 className="mt-1 text-xl font-semibold">Scan your scorecard</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Finish the round on paper, then snap the card and we'll fill it in automatically.
+                You can fix anything after.
+              </p>
+            </div>
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
+            />
+            <input
+              ref={cameraRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleFile(f);
+              }}
+            />
+
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                size="lg"
+                className="flex-1"
+                onClick={() => cameraRef.current?.click()}
+                disabled={scanning}
+              >
+                {scanning ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning…
+                  </>
+                ) : (
+                  <>
+                    <Camera className="mr-2 h-5 w-5" /> Take photo
+                  </>
+                )}
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="flex-1"
+                onClick={() => fileRef.current?.click()}
+                disabled={scanning}
+              >
+                <Upload className="mr-2 h-5 w-5" /> Upload image
+              </Button>
+            </div>
+
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setEntryStarted(true)}
+                className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Enter manually instead
+              </button>
+            </div>
+
+            {playerName && (
+              <p className="mt-4 text-center text-[11px] text-muted-foreground">
+                Scans will match against <span className="font-medium text-foreground">{playerName}</span>
+              </p>
+            )}
           </Card>
         ) : (
           <div className="space-y-4">
@@ -237,14 +417,14 @@ function Index() {
                     if (f) handleFile(f);
                   }}
                 />
-                <Button onClick={() => cameraRef.current?.click()} disabled={scanning}>
+                <Button variant="outline" onClick={() => cameraRef.current?.click()} disabled={scanning}>
                   {scanning ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning…
                     </>
                   ) : (
                     <>
-                      <Camera className="mr-2 h-4 w-4" /> Take photo
+                      <Camera className="mr-2 h-4 w-4" /> Rescan
                     </>
                   )}
                 </Button>
@@ -293,7 +473,10 @@ function Index() {
                     className="flex items-center justify-between gap-3 p-3 transition-colors hover:bg-accent/40"
                   >
                     <button
-                      onClick={() => setRound(r)}
+                      onClick={() => {
+                        setRound(r);
+                        setEntryStarted(true);
+                      }}
                       className="flex flex-1 items-center gap-3 text-left"
                     >
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
@@ -343,6 +526,40 @@ function Index() {
         hasCurrentRound={!!round}
         onStart={startRound}
       />
+
+      <Dialog
+        open={showNameDialog}
+        onOpenChange={(v) => {
+          // Block dismiss on first-open flow
+          if (!v && !playerName) return;
+          setShowNameDialog(v);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{playerName ? "Edit your name" : "Welcome to Eagle Eye Stats"}</DialogTitle>
+            <DialogDescription>
+              We use your name to pick the right column when scanning multi-player scorecards.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-xs font-medium text-muted-foreground">Full name</label>
+            <Input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="e.g. Colm Fanning"
+              className="mt-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={saveName}>Save name</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
