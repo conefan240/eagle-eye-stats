@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { scanScorecard } from "@/lib/scan-scorecard.functions";
-import { suggestCourses, type CourseSuggestion } from "@/lib/suggest-courses.functions";
+import { scanScorecard, type ScanResult } from "@/lib/scan-scorecard.functions";
+import { type CourseSuggestion } from "@/lib/suggest-courses.functions";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
 import {
   emptyRound,
   STORAGE_KEY,
