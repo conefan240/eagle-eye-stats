@@ -105,11 +105,22 @@ function SettingsPage() {
             courses.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Input
-              value={homeCourseDraft}
-              onChange={(e) => setHomeCourseDraft(e.target.value)}
-              placeholder="e.g. Royal Portrush"
-            />
+            <div className="flex-1">
+              <CourseAutocomplete
+                query={homeCourseDraft}
+                onQueryChange={(v) => {
+                  setHomeCourseDraft(v);
+                  setPickedSuggestion(null);
+                }}
+                picked={pickedSuggestion}
+                onPick={(s) => {
+                  setPickedSuggestion(s);
+                  setHomeCourseDraft(s.name);
+                }}
+                holes={18}
+                placeholder="e.g. Royal Portrush"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -120,7 +131,7 @@ function SettingsPage() {
                     toast.success("Home course cleared");
                     return;
                   }
-                  setHomeCourse({ name: n });
+                  setHomeCourse({ name: n, suggestion: pickedSuggestion ?? undefined });
                   toast.success("Home course saved");
                 }}
               >
@@ -133,6 +144,7 @@ function SettingsPage() {
                   onClick={() => {
                     setHomeCourse(null);
                     setHomeCourseDraft("");
+                    setPickedSuggestion(null);
                     toast.success("Home course cleared");
                   }}
                 >
@@ -142,6 +154,7 @@ function SettingsPage() {
             </div>
           </div>
         </Card>
+
 
         <Card className="p-4">
           <div className="text-sm font-semibold">Dashboard widgets</div>
