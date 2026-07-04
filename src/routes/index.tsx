@@ -1019,7 +1019,7 @@ function NewRoundDialog({
           ) : (
             <span />
           )}
-          <Button onClick={handleStart}>Start round</Button>
+          <Button onClick={handleStart}>{submitLabel}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
