@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSettings, THEME_KEY } from "@/lib/settings";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
+import type { CourseSuggestion } from "@/lib/suggest-courses.functions";
 import { useHomeCourse, useWidgetPrefs, WIDGET_META } from "@/lib/home-course";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
