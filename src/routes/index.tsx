@@ -215,7 +215,7 @@ function Index() {
     setPlayerName(n);
     const hc = homeCourseDraft.trim();
     if (isFirstRun && hc) {
-      setHomeCourse({ name: hc });
+      setHomeCourse({ name: hc, suggestion: homeCoursePicked ?? undefined });
     }
     setShowNameDialog(false);
     setIsFirstRun(false);
