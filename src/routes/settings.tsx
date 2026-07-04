@@ -29,12 +29,14 @@ function SettingsPage() {
   const { homeCourse, setHomeCourse } = useHomeCourse();
   const { prefs: widgets, setPref: setWidget } = useWidgetPrefs();
   const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [pickedSuggestion, setPickedSuggestion] = useState<CourseSuggestion | null>(null);
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     setHomeCourseDraft(homeCourse?.name ?? "");
-  }, [homeCourse?.name]);
+    setPickedSuggestion(homeCourse?.suggestion ?? null);
+  }, [homeCourse?.name, homeCourse?.suggestion]);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY);
