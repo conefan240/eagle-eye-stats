@@ -796,49 +796,19 @@ function NewRoundDialog({
   const [tee, setTee] = useState<TeeColor>("white");
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<CourseSuggestion | null>(null);
-  const [suggestions, setSuggestions] = useState<CourseSuggestion[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setQuery(defaultCourse?.name ?? "");
       setPicked(defaultCourse?.suggestion ?? null);
-      setSuggestions([]);
       setHoles(18);
       setTee("white");
     }
   }, [open, defaultCourse]);
 
-
-  useEffect(() => {
-    if (picked && picked.name === query) return;
-    const q = query.trim();
-    if (q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await suggestCourses({ data: { query: q, holes } });
-        if (!cancelled) setSuggestions(res.suggestions);
-      } catch {
-        if (!cancelled) setSuggestions([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [query, holes, picked]);
-
   function pick(s: CourseSuggestion) {
     setPicked(s);
     setQuery(s.name);
-    setSuggestions([]);
   }
 
   function handleStart() {
