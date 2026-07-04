@@ -77,6 +77,7 @@ function Index() {
     if (!n) {
       setNameDraft("");
       setHomeCourseDraft("");
+      setHomeCoursePicked(null);
       setIsFirstRun(true);
       setShowNameDialog(true);
     }
