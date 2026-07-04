@@ -797,15 +797,22 @@ function Index() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Home course <span className="text-muted-foreground/70">(optional)</span>
                 </label>
-                <Input
-                  value={homeCourseDraft}
-                  onChange={(e) => setHomeCourseDraft(e.target.value)}
-                  placeholder="e.g. Royal Portrush"
-                  className="mt-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveName();
-                  }}
-                />
+                <div className="mt-1">
+                  <CourseAutocomplete
+                    query={homeCourseDraft}
+                    onQueryChange={(v) => {
+                      setHomeCourseDraft(v);
+                      setHomeCoursePicked(null);
+                    }}
+                    picked={homeCoursePicked}
+                    onPick={(s) => {
+                      setHomeCoursePicked(s);
+                      setHomeCourseDraft(s.name);
+                    }}
+                    holes={18}
+                    placeholder="e.g. Royal Portrush"
+                  />
+                </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   We'll prefill this when you start a new round or scan a card. You can still
                   search for other courses too, and change this later in Settings.
