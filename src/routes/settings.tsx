@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSettings, THEME_KEY } from "@/lib/settings";
 import { useHomeCourse, useWidgetPrefs, WIDGET_META } from "@/lib/home-course";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
+import type { CourseSuggestion } from "@/lib/suggest-courses.functions";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
