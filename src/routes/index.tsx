@@ -52,6 +52,7 @@ function Index() {
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [homeCoursePicked, setHomeCoursePicked] = useState<CourseSuggestion | null>(null);
   const [isFirstRun, setIsFirstRun] = useState(false);
 
   // Filters for saved rounds list
