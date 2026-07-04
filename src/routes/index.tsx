@@ -371,7 +371,7 @@ function Index() {
                 <WidgetTile
                   icon={<ScanLine className="h-5 w-5" />}
                   label="Upload card"
-                  hint={round ? "Auto-fill this round" : homeCourse ? `Scan at ${homeCourse.name}` : "Snap a scorecard"}
+                  hint={round ? "Auto-fill this round" : "Snap a card first"}
                   onClick={openQuickScan}
                   loading={scanning}
                 />
