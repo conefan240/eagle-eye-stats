@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { useSettings, THEME_KEY } from "@/lib/settings";
 import { useHomeCourse, useWidgetPrefs, WIDGET_META } from "@/lib/home-course";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
+import type { CourseSuggestion } from "@/lib/suggest-courses.functions";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -27,12 +29,14 @@ function SettingsPage() {
   const { homeCourse, setHomeCourse } = useHomeCourse();
   const { prefs: widgets, setPref: setWidget } = useWidgetPrefs();
   const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [pickedSuggestion, setPickedSuggestion] = useState<CourseSuggestion | null>(null);
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     setHomeCourseDraft(homeCourse?.name ?? "");
-  }, [homeCourse?.name]);
+    setPickedSuggestion(homeCourse?.suggestion ?? null);
+  }, [homeCourse?.name, homeCourse?.suggestion]);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY);
@@ -101,11 +105,22 @@ function SettingsPage() {
             courses.
           </p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-            <Input
-              value={homeCourseDraft}
-              onChange={(e) => setHomeCourseDraft(e.target.value)}
-              placeholder="e.g. Royal Portrush"
-            />
+            <div className="flex-1">
+              <CourseAutocomplete
+                query={homeCourseDraft}
+                onQueryChange={(v) => {
+                  setHomeCourseDraft(v);
+                  setPickedSuggestion(null);
+                }}
+                picked={pickedSuggestion}
+                onPick={(s) => {
+                  setPickedSuggestion(s);
+                  setHomeCourseDraft(s.name);
+                }}
+                holes={18}
+                placeholder="e.g. Royal Portrush"
+              />
+            </div>
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -116,7 +131,7 @@ function SettingsPage() {
                     toast.success("Home course cleared");
                     return;
                   }
-                  setHomeCourse({ name: n });
+                  setHomeCourse({ name: n, suggestion: pickedSuggestion ?? undefined });
                   toast.success("Home course saved");
                 }}
               >
@@ -129,6 +144,7 @@ function SettingsPage() {
                   onClick={() => {
                     setHomeCourse(null);
                     setHomeCourseDraft("");
+                    setPickedSuggestion(null);
                     toast.success("Home course cleared");
                   }}
                 >
@@ -138,6 +154,7 @@ function SettingsPage() {
             </div>
           </div>
         </Card>
+
 
         <Card className="p-4">
           <div className="text-sm font-semibold">Dashboard widgets</div>

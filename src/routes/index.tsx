@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { scanScorecard } from "@/lib/scan-scorecard.functions";
-import { suggestCourses, type CourseSuggestion } from "@/lib/suggest-courses.functions";
+import { scanScorecard, type ScanResult } from "@/lib/scan-scorecard.functions";
+import { type CourseSuggestion } from "@/lib/suggest-courses.functions";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
 import {
   emptyRound,
   STORAGE_KEY,
@@ -51,7 +52,12 @@ function Index() {
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [homeCoursePicked, setHomeCoursePicked] = useState<CourseSuggestion | null>(null);
   const [isFirstRun, setIsFirstRun] = useState(false);
+
+  // Post-scan flow: uploaded card before starting a round
+  const [pendingScan, setPendingScan] = useState<ScanResult | null>(null);
+  const [showPostScan, setShowPostScan] = useState(false);
 
   // Filters for saved rounds list
   const [filterQuery, setFilterQuery] = useState("");
@@ -75,6 +81,7 @@ function Index() {
     if (!n) {
       setNameDraft("");
       setHomeCourseDraft("");
+      setHomeCoursePicked(null);
       setIsFirstRun(true);
       setShowNameDialog(true);
     }
@@ -212,7 +219,7 @@ function Index() {
     setPlayerName(n);
     const hc = homeCourseDraft.trim();
     if (isFirstRun && hc) {
-      setHomeCourse({ name: hc });
+      setHomeCourse({ name: hc, suggestion: homeCoursePicked ?? undefined });
     }
     setShowNameDialog(false);
     setIsFirstRun(false);
@@ -234,21 +241,78 @@ function Index() {
   }
 
   function openQuickScan() {
-    if (!round) {
-      if (homeCourse) {
-        // Auto-start a round at the home course and open the scanner
-        const s = homeCourse.suggestion;
-        const tee: TeeColor = "white";
-        const teeData = s?.tees?.[tee];
-        startRound(18, tee, homeCourse.name, teeData?.pars ?? s?.pars, teeData?.distances);
-        setTimeout(() => quickFileRef.current?.click(), 50);
-        return;
-      }
-      toast.message("Start a round first, then scan the card");
-      setShowNew(true);
+    // Always allow uploading first — if no round is in progress, we'll
+    // capture course/holes/tees after the scan.
+    quickFileRef.current?.click();
+  }
+
+  async function handleQuickFile(file: File) {
+    // If there's already a round, just fill it in.
+    if (round) {
+      await handleFile(file);
       return;
     }
-    quickFileRef.current?.click();
+    // Otherwise: scan first (default to 18 holes), then ask course/holes/tees.
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image too large (max 8MB)");
+      if (quickFileRef.current) quickFileRef.current.value = "";
+      return;
+    }
+    setScanning(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error("read failed"));
+        r.readAsDataURL(file);
+      });
+      const result = await scanScorecard({
+        data: {
+          imageDataUrl: dataUrl,
+          holes: 18,
+          playerName: playerName || undefined,
+        },
+      });
+      setPendingScan(result);
+      setShowPostScan(true);
+      if (result.matchedPlayer) {
+        toast.success(`Scanned — matched: ${result.matchedPlayer}`);
+      } else if (playerName) {
+        toast.warning(`Couldn't find "${playerName}" on the card — used the most prominent column`);
+      } else {
+        toast.success("Scorecard scanned");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Scan failed");
+    } finally {
+      setScanning(false);
+      if (quickFileRef.current) quickFileRef.current.value = "";
+    }
+  }
+
+  function finalizePostScan(
+    holes: 9 | 18,
+    tee: TeeColor,
+    courseName?: string,
+    pars?: (number | null)[],
+    distances?: (number | null)[],
+  ) {
+    if (!pendingScan) return;
+    const r = emptyRound(holes, tee);
+    r.courseName = courseName || pendingScan.courseName || "";
+    // Course-supplied pars first, then scan-detected pars as fallback per hole
+    const scanPars = (pendingScan.pars ?? []).slice(0, holes);
+    r.pars = Array.from({ length: holes }, (_, i) => pars?.[i] ?? scanPars[i] ?? null);
+    r.scores = Array.from(
+      { length: holes },
+      (_, i) => pendingScan.scores[i] ?? null,
+    );
+    if (distances && distances.length === holes) r.distances = distances.slice();
+    setRound(r);
+    setEntryStarted(true);
+    setPendingScan(null);
+    setShowPostScan(false);
+    toast.success("Round created from scanned card");
   }
 
   return (
@@ -284,7 +348,7 @@ function Index() {
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
-            if (f) handleFile(f);
+            if (f) handleQuickFile(f);
           }}
         />
 
@@ -307,7 +371,7 @@ function Index() {
                 <WidgetTile
                   icon={<ScanLine className="h-5 w-5" />}
                   label="Upload card"
-                  hint={round ? "Auto-fill this round" : homeCourse ? `Scan at ${homeCourse.name}` : "Snap a scorecard"}
+                  hint={round ? "Auto-fill this round" : "Snap a card first"}
                   onClick={openQuickScan}
                   loading={scanning}
                 />
@@ -699,6 +763,24 @@ function Index() {
         defaultCourse={homeCourse}
       />
 
+      <NewRoundDialog
+        open={showPostScan}
+        onOpenChange={(v) => {
+          setShowPostScan(v);
+          if (!v) setPendingScan(null);
+        }}
+        hasCurrentRound={!!round}
+        onStart={finalizePostScan}
+        defaultCourse={
+          pendingScan?.courseName
+            ? { name: pendingScan.courseName }
+            : homeCourse
+        }
+        title="Confirm scanned round"
+        description="We scanned your card. Pick the course, holes and tees you played."
+        submitLabel="Create round"
+      />
+
       <Dialog
         open={showNameDialog}
         onOpenChange={(v) => {
@@ -733,15 +815,22 @@ function Index() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Home course <span className="text-muted-foreground/70">(optional)</span>
                 </label>
-                <Input
-                  value={homeCourseDraft}
-                  onChange={(e) => setHomeCourseDraft(e.target.value)}
-                  placeholder="e.g. Royal Portrush"
-                  className="mt-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveName();
-                  }}
-                />
+                <div className="mt-1">
+                  <CourseAutocomplete
+                    query={homeCourseDraft}
+                    onQueryChange={(v) => {
+                      setHomeCourseDraft(v);
+                      setHomeCoursePicked(null);
+                    }}
+                    picked={homeCoursePicked}
+                    onPick={(s) => {
+                      setHomeCoursePicked(s);
+                      setHomeCourseDraft(s.name);
+                    }}
+                    holes={18}
+                    placeholder="e.g. Royal Portrush"
+                  />
+                </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   We'll prefill this when you start a new round or scan a card. You can still
                   search for other courses too, and change this later in Settings.
@@ -779,6 +868,9 @@ function NewRoundDialog({
   hasCurrentRound,
   onStart,
   defaultCourse,
+  title = "Start new round",
+  description = "Pick your course, how many holes, and which tees you're playing.",
+  submitLabel = "Start round",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -791,55 +883,23 @@ function NewRoundDialog({
     distances?: (number | null)[],
   ) => void;
   defaultCourse?: HomeCourse | null;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
 }) {
   const [holes, setHoles] = useState<9 | 18>(18);
   const [tee, setTee] = useState<TeeColor>("white");
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<CourseSuggestion | null>(null);
-  const [suggestions, setSuggestions] = useState<CourseSuggestion[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setQuery(defaultCourse?.name ?? "");
       setPicked(defaultCourse?.suggestion ?? null);
-      setSuggestions([]);
       setHoles(18);
       setTee("white");
     }
   }, [open, defaultCourse]);
-
-
-  useEffect(() => {
-    if (picked && picked.name === query) return;
-    const q = query.trim();
-    if (q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await suggestCourses({ data: { query: q, holes } });
-        if (!cancelled) setSuggestions(res.suggestions);
-      } catch {
-        if (!cancelled) setSuggestions([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [query, holes, picked]);
-
-  function pick(s: CourseSuggestion) {
-    setPicked(s);
-    setQuery(s.name);
-    setSuggestions([]);
-  }
 
   function handleStart() {
     let pars = picked?.pars;
@@ -864,58 +924,28 @@ function NewRoundDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Start new round</DialogTitle>
-          <DialogDescription>
-            Pick your course, how many holes, and which tees you're playing.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div>
             <label className="text-xs font-medium text-muted-foreground">Course</label>
-            <div className="relative mt-1">
-              <Input
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
+            <div className="mt-1">
+              <CourseAutocomplete
+                query={query}
+                onQueryChange={(v) => {
+                  setQuery(v);
                   setPicked(null);
                 }}
-                placeholder="Start typing a course name…"
+                picked={picked}
+                onPick={(s) => {
+                  setPicked(s);
+                  setQuery(s.name);
+                }}
+                holes={holes}
                 autoFocus
               />
-              {(loading || suggestions.length > 0) && !picked && (
-                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-md">
-                  {loading && (
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Searching courses…
-                    </div>
-                  )}
-                  {suggestions.map((s, i) => {
-                    const parSum = s.pars.reduce<number>((a, b) => a + (b ?? 0), 0);
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => pick(s)}
-                        className="flex w-full items-center justify-between gap-2 border-t px-3 py-2 text-left text-sm first:border-t-0 hover:bg-accent"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">{s.name}</div>
-                          {s.location && (
-                            <div className="truncate text-xs text-muted-foreground">
-                              {s.location}
-                            </div>
-                          )}
-                        </div>
-                        {parSum > 0 && (
-                          <div className="text-xs tabular-nums text-muted-foreground">
-                            Par {parSum}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
             {picked && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -989,7 +1019,7 @@ function NewRoundDialog({
           ) : (
             <span />
           )}
-          <Button onClick={handleStart}>Start round</Button>
+          <Button onClick={handleStart}>{submitLabel}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
