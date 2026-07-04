@@ -13,6 +13,7 @@ import { useSavedRounds } from "@/lib/use-saved-rounds";
 import { useSettings, convertDistance, unitLabel, THEME_KEY } from "@/lib/settings";
 import { useHomeCourse, useWidgetPrefs, type HomeCourse } from "@/lib/home-course";
 import { BrandHeader } from "@/components/BrandHeader";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
