@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { BrandHeader } from "@/components/BrandHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import { useSettings, THEME_KEY } from "@/lib/settings";
 import { useHomeCourse, useWidgetPrefs, WIDGET_META } from "@/lib/home-course";
 import { CourseAutocomplete } from "@/components/CourseAutocomplete";
