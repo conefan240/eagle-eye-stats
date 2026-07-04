@@ -293,7 +293,7 @@ function Index() {
   function finalizePostScan(
     holes: 9 | 18,
     tee: TeeColor,
-    courseName: string,
+    courseName?: string,
     pars?: (number | null)[],
     distances?: (number | null)[],
   ) {
