@@ -13,6 +13,7 @@ import { useSavedRounds } from "@/lib/use-saved-rounds";
 import { useSettings, convertDistance, unitLabel, THEME_KEY } from "@/lib/settings";
 import { useHomeCourse, useWidgetPrefs, type HomeCourse } from "@/lib/home-course";
 import { BrandHeader } from "@/components/BrandHeader";
+import { CourseAutocomplete } from "@/components/CourseAutocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -51,6 +52,7 @@ function Index() {
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [homeCoursePicked, setHomeCoursePicked] = useState<CourseSuggestion | null>(null);
   const [isFirstRun, setIsFirstRun] = useState(false);
 
   // Filters for saved rounds list
@@ -75,6 +77,7 @@ function Index() {
     if (!n) {
       setNameDraft("");
       setHomeCourseDraft("");
+      setHomeCoursePicked(null);
       setIsFirstRun(true);
       setShowNameDialog(true);
     }
@@ -212,7 +215,7 @@ function Index() {
     setPlayerName(n);
     const hc = homeCourseDraft.trim();
     if (isFirstRun && hc) {
-      setHomeCourse({ name: hc });
+      setHomeCourse({ name: hc, suggestion: homeCoursePicked ?? undefined });
     }
     setShowNameDialog(false);
     setIsFirstRun(false);
@@ -733,15 +736,22 @@ function Index() {
                 <label className="text-xs font-medium text-muted-foreground">
                   Home course <span className="text-muted-foreground/70">(optional)</span>
                 </label>
-                <Input
-                  value={homeCourseDraft}
-                  onChange={(e) => setHomeCourseDraft(e.target.value)}
-                  placeholder="e.g. Royal Portrush"
-                  className="mt-1"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveName();
-                  }}
-                />
+                <div className="mt-1">
+                  <CourseAutocomplete
+                    query={homeCourseDraft}
+                    onQueryChange={(v) => {
+                      setHomeCourseDraft(v);
+                      setHomeCoursePicked(null);
+                    }}
+                    picked={homeCoursePicked}
+                    onPick={(s) => {
+                      setHomeCoursePicked(s);
+                      setHomeCourseDraft(s.name);
+                    }}
+                    holes={18}
+                    placeholder="e.g. Royal Portrush"
+                  />
+                </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   We'll prefill this when you start a new round or scan a card. You can still
                   search for other courses too, and change this later in Settings.
@@ -796,49 +806,19 @@ function NewRoundDialog({
   const [tee, setTee] = useState<TeeColor>("white");
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<CourseSuggestion | null>(null);
-  const [suggestions, setSuggestions] = useState<CourseSuggestion[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setQuery(defaultCourse?.name ?? "");
       setPicked(defaultCourse?.suggestion ?? null);
-      setSuggestions([]);
       setHoles(18);
       setTee("white");
     }
   }, [open, defaultCourse]);
 
-
-  useEffect(() => {
-    if (picked && picked.name === query) return;
-    const q = query.trim();
-    if (q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await suggestCourses({ data: { query: q, holes } });
-        if (!cancelled) setSuggestions(res.suggestions);
-      } catch {
-        if (!cancelled) setSuggestions([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }, 400);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [query, holes, picked]);
-
   function pick(s: CourseSuggestion) {
     setPicked(s);
     setQuery(s.name);
-    setSuggestions([]);
   }
 
   function handleStart() {
@@ -873,49 +853,18 @@ function NewRoundDialog({
         <div className="space-y-4 py-2">
           <div>
             <label className="text-xs font-medium text-muted-foreground">Course</label>
-            <div className="relative mt-1">
-              <Input
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
+            <div className="mt-1">
+              <CourseAutocomplete
+                query={query}
+                onQueryChange={(v) => {
+                  setQuery(v);
                   setPicked(null);
                 }}
-                placeholder="Start typing a course name…"
+                picked={picked}
+                onPick={pick}
+                holes={holes}
                 autoFocus
               />
-              {(loading || suggestions.length > 0) && !picked && (
-                <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-y-auto rounded-md border bg-popover shadow-md">
-                  {loading && (
-                    <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Searching courses…
-                    </div>
-                  )}
-                  {suggestions.map((s, i) => {
-                    const parSum = s.pars.reduce<number>((a, b) => a + (b ?? 0), 0);
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => pick(s)}
-                        className="flex w-full items-center justify-between gap-2 border-t px-3 py-2 text-left text-sm first:border-t-0 hover:bg-accent"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">{s.name}</div>
-                          {s.location && (
-                            <div className="truncate text-xs text-muted-foreground">
-                              {s.location}
-                            </div>
-                          )}
-                        </div>
-                        {parSum > 0 && (
-                          <div className="text-xs tabular-nums text-muted-foreground">
-                            Par {parSum}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
             </div>
             {picked && (
               <p className="mt-1 text-xs text-muted-foreground">
