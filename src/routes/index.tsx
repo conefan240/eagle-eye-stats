@@ -241,21 +241,78 @@ function Index() {
   }
 
   function openQuickScan() {
-    if (!round) {
-      if (homeCourse) {
-        // Auto-start a round at the home course and open the scanner
-        const s = homeCourse.suggestion;
-        const tee: TeeColor = "white";
-        const teeData = s?.tees?.[tee];
-        startRound(18, tee, homeCourse.name, teeData?.pars ?? s?.pars, teeData?.distances);
-        setTimeout(() => quickFileRef.current?.click(), 50);
-        return;
-      }
-      toast.message("Start a round first, then scan the card");
-      setShowNew(true);
+    // Always allow uploading first — if no round is in progress, we'll
+    // capture course/holes/tees after the scan.
+    quickFileRef.current?.click();
+  }
+
+  async function handleQuickFile(file: File) {
+    // If there's already a round, just fill it in.
+    if (round) {
+      await handleFile(file);
       return;
     }
-    quickFileRef.current?.click();
+    // Otherwise: scan first (default to 18 holes), then ask course/holes/tees.
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image too large (max 8MB)");
+      if (quickFileRef.current) quickFileRef.current.value = "";
+      return;
+    }
+    setScanning(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as string);
+        r.onerror = () => reject(new Error("read failed"));
+        r.readAsDataURL(file);
+      });
+      const result = await scanScorecard({
+        data: {
+          imageDataUrl: dataUrl,
+          holes: 18,
+          playerName: playerName || undefined,
+        },
+      });
+      setPendingScan(result);
+      setShowPostScan(true);
+      if (result.matchedPlayer) {
+        toast.success(`Scanned — matched: ${result.matchedPlayer}`);
+      } else if (playerName) {
+        toast.warning(`Couldn't find "${playerName}" on the card — used the most prominent column`);
+      } else {
+        toast.success("Scorecard scanned");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Scan failed");
+    } finally {
+      setScanning(false);
+      if (quickFileRef.current) quickFileRef.current.value = "";
+    }
+  }
+
+  function finalizePostScan(
+    holes: 9 | 18,
+    tee: TeeColor,
+    courseName: string,
+    pars?: (number | null)[],
+    distances?: (number | null)[],
+  ) {
+    if (!pendingScan) return;
+    const r = emptyRound(holes, tee);
+    r.courseName = courseName || pendingScan.courseName || "";
+    // Course-supplied pars first, then scan-detected pars as fallback per hole
+    const scanPars = (pendingScan.pars ?? []).slice(0, holes);
+    r.pars = Array.from({ length: holes }, (_, i) => pars?.[i] ?? scanPars[i] ?? null);
+    r.scores = Array.from(
+      { length: holes },
+      (_, i) => pendingScan.scores[i] ?? null,
+    );
+    if (distances && distances.length === holes) r.distances = distances.slice();
+    setRound(r);
+    setEntryStarted(true);
+    setPendingScan(null);
+    setShowPostScan(false);
+    toast.success("Round created from scanned card");
   }
 
   return (
