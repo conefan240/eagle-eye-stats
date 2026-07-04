@@ -52,7 +52,12 @@ function Index() {
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
   const [homeCourseDraft, setHomeCourseDraft] = useState("");
+  const [homeCoursePicked, setHomeCoursePicked] = useState<CourseSuggestion | null>(null);
   const [isFirstRun, setIsFirstRun] = useState(false);
+
+  // Post-scan flow: uploaded card before starting a round
+  const [pendingScan, setPendingScan] = useState<ScanResult | null>(null);
+  const [showPostScan, setShowPostScan] = useState(false);
 
   // Filters for saved rounds list
   const [filterQuery, setFilterQuery] = useState("");
