@@ -763,6 +763,24 @@ function Index() {
         defaultCourse={homeCourse}
       />
 
+      <NewRoundDialog
+        open={showPostScan}
+        onOpenChange={(v) => {
+          setShowPostScan(v);
+          if (!v) setPendingScan(null);
+        }}
+        hasCurrentRound={!!round}
+        onStart={finalizePostScan}
+        defaultCourse={
+          pendingScan?.courseName
+            ? { name: pendingScan.courseName }
+            : homeCourse
+        }
+        title="Confirm scanned round"
+        description="We scanned your card. Pick the course, holes and tees you played."
+        submitLabel="Create round"
+      />
+
       <Dialog
         open={showNameDialog}
         onOpenChange={(v) => {
